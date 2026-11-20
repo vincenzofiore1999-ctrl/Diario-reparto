@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diario di reparto</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0b6e63">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Diario reparto">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: clinico, sobrio, leggibile al volo durante il giro visite.
+   IDEA: il diario clinico / flowsheet di reparto: letto, problemi, cose da fare, cronologia.
+   PICTURE: lo strumento stesso; la linea temporale con il segnaposto "ora" è il cuore.
+   COLOUR and TYPE: bianco, inchiostro blu notte, verde ospedaliero come accento, rosso solo per problemi attivi/ritardi. IBM Plex.
+   LAYOUT: elenco letti a sinistra, scheda paziente a destra (problemi + da fare | linea temporale); si impila sotto 900px. */
+:root{color-scheme:light dark;
+--bg:light-dark(#f4f6f7,#0f1417);--card:light-dark(#fff,#172025);--ink:light-dark(#12202b,#e6edf1);--mute:light-dark(#5b6b76,#93a3ad);
+--line:light-dark(#dde3e7,#26333a);--acc:light-dark(#0b6e63,#3cc0ad);--accbg:light-dark(#e2f3f0,#123430);
+--red:light-dark(#b3261e,#ff8a80);--redbg:light-dark(#fdeceb,#3a1d1b);--amb:light-dark(#8a5a00,#f2c063);--ambbg:light-dark(#fff4dc,#33290f)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "IBM Plex Sans",system-ui,sans-serif;overflow-x:clip}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);border-radius:8px;min-height:40px;padding:0 14px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.pri{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600}
+:root[data-theme=dark] .pri{color:#062320}@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .pri{color:#062320}}
+.ghost{border-color:transparent;background:none;color:var(--mute)}
+input,select,textarea{border:1px solid var(--line);background:var(--card);border-radius:8px;min-height:40px;padding:6px 10px;font-size:16px;width:100%}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px max(3vw,14px);border-bottom:1px solid var(--line);background:var(--card)}
+h1{font:600 22px/1.1 "IBM Plex Sans Condensed",sans-serif;margin:0}
+h1 small{display:block;font:400 13px "IBM Plex Sans";color:var(--mute);margin-top:3px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+main{display:grid;grid-template-columns:300px minmax(0,1fr);gap:0;min-height:calc(100vh - 70px)}
+aside{border-right:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:10px}
+.pt{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:48px minmax(0,1fr);gap:10px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
+.pt:focus-visible{outline:2px solid var(--acc)}
+.pt[aria-current=true]{border-color:var(--acc);box-shadow:inset 4px 0 0 var(--acc)}
+.bed{font:600 22px/1 "IBM Plex Sans Condensed";text-align:center;padding-top:4px}.bed span{display:block;font:500 11px "IBM Plex Sans";color:var(--mute);margin-top:4px}
+.pt b{display:block;font-weight:600}.pt .dx{font-size:14px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.bdg{font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--line);white-space:nowrap}
+.bdg.r{background:var(--redbg);color:var(--red)}.bdg.a{background:var(--ambbg);color:var(--amb)}.bdg.g{background:var(--accbg);color:var(--acc)}
+section.view{padding:18px max(2.5vw,14px);display:flex;flex-direction:column;gap:16px}
+.phead{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;justify-content:space-between}
+.phead h2{font:600 clamp(26px,3.4vw,36px)/1.05 "IBM Plex Sans Condensed";margin:0;text-wrap:balance}
+.meta{display:flex;flex-wrap:wrap;gap:6px 18px;color:var(--mute);font-size:14px;margin-top:6px}.meta strong{color:var(--ink);font-weight:600}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:16px;align-items:start}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.box h3{font-size:16px;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center}
+.box h3 em{font-style:normal;font-weight:500;color:var(--mute);font-size:14px}
+ul.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+ul.items li{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
+ul.items li:first-child{border-top:0}
+ul.items .txt{flex:1}.items .sub{display:block;font-size:13px;color:var(--mute)}
+.items .sub.late{color:var(--red);font-weight:600}
+.chk{width:24px;height:24px;min-height:24px;flex:none;margin-top:1px;accent-color:var(--acc)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--red);flex:none;margin-top:8px}
+.res .dot{background:var(--mute)}.res .txt{color:var(--mute);text-decoration:line-through}
+.mini{min-height:32px;padding:0 10px;font-size:13px}
+.add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:10px}
+.add.three{grid-template-columns:minmax(0,1fr) 190px auto}
+.add.ev{grid-template-columns:150px 190px minmax(0,1fr) auto}
+/* timeline */
+.tl{position:relative;margin:6px 0 0;padding:0 0 0 26px;list-style:none}
+.tl::before{content:"";position:absolute;left:8px;top:4px;bottom:4px;width:2px;background:var(--line)}
+.tl li{position:relative;padding:6px 0 12px}
+.tl li::before{content:"";position:absolute;left:-23px;top:12px;width:12px;height:12px;border-radius:50%;background:var(--card);border:2px solid var(--c,var(--mute))}
+.tl li.fut::before{border-style:dashed}
+.tl time{font-size:13px;color:var(--mute);white-space:nowrap}
+.tl .ty{font-size:12px;font-weight:600;color:var(--c);margin-left:8px}
+.tl p{margin:2px 0 0}
+.tl li.now{padding:4px 0 14px}.tl li.now::before{background:var(--acc);border-color:var(--acc);width:14px;height:14px;left:-24px;top:7px}
+.tl li.now span{font-weight:700;color:var(--acc);font-size:14px}
+.tl li.now::after{content:"";position:absolute;left:-26px;right:0;top:13px;border-top:2px solid var(--acc);z-index:-1}
+.tl .del{float:right}
+.empty{color:var(--mute);font-size:14px;padding:6px 0}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:13px;color:var(--mute);font-weight:600}
+td.nw{white-space:nowrap}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);padding:20px;width:min(560px,94vw)}
+dialog::backdrop{background:#0008}
+dialog h3{margin:0 0 12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{font-size:13px;color:var(--mute);display:flex;flex-direction:column;gap:4px}
+.row{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px}
+.note{font-size:13px;color:var(--mute)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;display:none;gap:12px;align-items:center;z-index:9}
+.toast button{background:none;color:inherit;border-color:currentColor;min-height:32px}
+@media(max-width:1100px){.cols{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:900px){main{grid-template-columns:minmax(0,1fr)}aside{border-right:0;border-bottom:1px solid var(--line);flex-direction:row;overflow-x:auto}aside .pt{flex:0 0 240px}aside .tools{flex:0 0 auto;display:flex;align-items:center}}
+@media(max-width:600px){.add.three,.add.ev{grid-template-columns:minmax(0,1fr)}.grid2{grid-template-columns:1fr}
+table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--line)}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;color:var(--mute)}.stack td:empty{display:none}}
+@media(prefers-reduced-motion:no-preference){.tl li.new{animation:in .35s ease-out}@keyframes in{from{opacity:0;transform:translateX(-6px)}}}
+</style>
+<script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script>
+</head>
+<body>
+<header>
+  <h1>Diario di reparto · Neurochirurgia<small>Dati salvati solo in questo browser · usa iniziali o codici, mai nomi o dati identificativi</small></h1>
+  <div class="tabs">
+    <button id="tabPt" aria-pressed="true">Pazienti</button>
+    <button id="tabWard" aria-pressed="false">Da fare in reparto</button>
+    <button id="btnData">Esporta / importa</button>
+  </div>
+</header>
+<main>
+  <aside id="list"></aside>
+  <section class="view" id="view"></section>
+</main>
+
+<dialog id="dlgPt"><form id="fPt" method="dialog">
+  <h3 id="dlgPtTitle">Nuovo paziente</h3>
+  <div class="grid2">
+    <label>Letto<input name="bed" required></label>
+    <label>Codice / iniziali<input name="code" required placeholder="es. M.R."></label>
+    <label>Età<input name="age" inputmode="numeric"></label>
+    <label>Data ricovero<input name="adm" type="date"></label>
+    <label style="grid-column:1/-1">Diagnosi<input name="dx" required></label>
+    <label>Intervento (data)<input name="surg" type="date"></label>
+    <label>Intervento (tipo)<input name="op"></label>
+    <label style="grid-column:1/-1">Note fisse (allergie, anticoagulanti, isolamento…)<input name="notes"></label>
+  </div>
+  <div class="row"><button type="button" class="ghost" id="ptDel">Dimetti / elimina</button><button value="cancel" formnovalidate>Annulla</button><button class="pri" value="ok">Salva</button></div>
+</form></dialog>
+
+<dialog id="dlgData">
+  <h3>Esporta / importa</h3>
+  <p class="note">I dati vivono solo in questo browser. Per spostarli su un altro computer o tenerne una copia: copia il testo e incollalo altrove; per ripristinarli incollalo qui e premi Importa, oppure scegli un file .json.</p>
+  <textarea id="dataTxt" rows="8"></textarea>
+  <div class="row" style="justify-content:space-between">
+    <input type="file" id="dataFile" accept=".json,application/json" style="width:auto">
+    <span style="display:flex;gap:8px;flex-wrap:wrap"><button id="dataDl">Scarica file</button><button id="dataCopy">Copia</button><button id="dataImp" class="pri">Importa</button><button id="dataClose">Chiudi</button></span>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"><span id="toastMsg"></span><button id="undo">Annulla</button></div>
+
+<script>
+{
+const KEY='nch-diario-v1';
+const TYPES={op:['Intervento','#7b3fb3'],img:['Imaging','#1f6fd1'],lab:['Esami','#0b8a7a'],ter:['Terapia','#c26a00'],cons:['Consulenza','#8a6d3b'],ev:['Evento clinico','#b3261e'],nota:['Nota','#6b7a85'],done:['Fatto','#2e7d32'],prob:['Problema','#b3261e']};
+const $=s=>document.querySelector(s);
+const uid=()=>Math.random().toString(36).slice(2,9);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const now=()=>iso(new Date());
+const shift=(days,h,m)=>{const d=new Date();d.setDate(d.getDate()+days);d.setHours(h,m||0,0,0);return iso(d)};
+const day=(days)=>shift(days,0).slice(0,10);
+const fmt=s=>{if(!s)return'';const d=new Date(s.length>10?s:s+'T00:00');return d.toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'})+(s.length>10?', '+s.slice(11,16):'')};
+const daysFrom=s=>{if(!s)return null;const a=new Date(s.slice(0,10)+'T00:00'),b=new Date();b.setHours(0,0,0,0);return Math.round((b-a)/864e5)};
+
+function sample(){
+  return {sel:null,patients:[
+  {id:uid(),bed:'4',code:'G.F.',age:'63',adm:day(-4),dx:'Glioblastoma frontale dx',surg:day(-2),op:'Craniotomia, asportazione con 5-ALA',notes:'Allergia a penicillina',
+   problems:[{id:uid(),t:'Ipostenia arto sup. sx (4/5)',since:day(-2),active:true},{id:uid(),t:'Iperglicemia da desametasone',since:day(-1),active:true},{id:uid(),t:'Crisi focale pre-op',since:day(-5),active:false}],
+   todos:[{id:uid(),t:'RM encefalo post-op (entro 72h)',due:shift(0,15),done:false},{id:uid(),t:'Ridurre desametasone a 4 mg x2',due:shift(1,8),done:false},{id:uid(),t:'Rimozione drenaggio',due:shift(-1,12),done:false},{id:uid(),t:'Richiesta consulenza oncologica',due:shift(2,10),done:false}],
+   events:[{id:uid(),at:shift(-4,11),type:'img',t:'RM con mdc: lesione 4 cm frontale dx, edema perilesionale'},{id:uid(),at:shift(-2,8,30),type:'op',t:'Craniotomia frontale dx, asportazione macroscopicamente completa'},{id:uid(),at:shift(-2,19),type:'ev',t:'Ipostenia arto sup. sx comparsa in serata'},{id:uid(),at:shift(-1,9),type:'img',t:'TC encefalo: non sanguinamenti, edema stabile'},{id:uid(),at:shift(-1,13),type:'ter',t:'Insulina a schema per glicemie > 200'}]},
+  {id:uid(),bed:'7',code:'L.P.',age:'51',adm:day(-6),dx:'ESA da aneurisma AComA (H-H 2, Fisher 3)',surg:day(-6),op:'Embolizzazione endovascolare',notes:'Nimodipina in corso',
+   problems:[{id:uid(),t:'Finestra vasospasmo (giorno 6)',since:day(-3),active:true},{id:uid(),t:'Iponatriemia (Na 131)',since:day(-1),active:true},{id:uid(),t:'Idrocefalo acuto, DVE in sede',since:day(-6),active:true}],
+   todos:[{id:uid(),t:'Doppler transcranico',due:shift(0,11),done:false},{id:uid(),t:'Na+ di controllo',due:shift(0,18),done:false},{id:uid(),t:'Prova di chiusura DVE',due:shift(2,9),done:false}],
+   events:[{id:uid(),at:shift(-6,3),type:'img',t:'TC: ESA diffusa; angio-TC: aneurisma AComA 6 mm'},{id:uid(),at:shift(-6,4),type:'op',t:'Posizionamento DVE'},{id:uid(),at:shift(-6,10),type:'op',t:'Embolizzazione con spirali, occlusione completa'},{id:uid(),at:shift(-1,7),type:'lab',t:'Na 131 mmol/L'},{id:uid(),at:shift(-1,12),type:'cons',t:'Consulenza nefrologica: probabile CSW, reintegro idrosalino'}]},
+  {id:uid(),bed:'12',code:'A.B.',age:'44',adm:day(-1),dx:'Ernia discale L4-L5 con deficit L5 sx',surg:day(0),op:'Microdiscectomia L4-L5',notes:'',
+   problems:[{id:uid(),t:'Deficit dorsiflessione piede sx (3/5)',since:day(-1),active:true}],
+   todos:[{id:uid(),t:'Mobilizzazione con fisioterapista',due:shift(1,10),done:false},{id:uid(),t:'Valutare dimissione',due:shift(2,12),done:false}],
+   events:[{id:uid(),at:shift(-1,10),type:'img',t:'RM rachide LS: ernia espulsa L4-L5 sx'},{id:uid(),at:shift(0,8),type:'op',t:'Microdiscectomia L4-L5 sx, decorso intraop. regolare'}]}
+  ]};
+}
+let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!Array.isArray(S.patients)){S=sample();S.demo=true}
+if(!S.sel&&S.patients[0])S.sel=S.patients[0].id;
+let tab='pt',lastSnap=null,fresh=null;
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const snap=msg=>{lastSnap=JSON.stringify(S);$('#toastMsg').textContent=msg;$('#toast').style.display='flex';clearTimeout(snap.t);snap.t=setTimeout(()=>$('#toast').style.display='none',6000)};
+const cur=()=>S.patients.find(p=>p.id===S.sel);
+const late=t=>!t.done&&t.due&&t.due<now();
+
+function renderList(){
+  const ps=[...S.patients].sort((a,b)=>a.bed.localeCompare(b.bed,undefined,{numeric:true}));
+  $('#list').innerHTML=ps.map(p=>{
+    const ap=p.problems.filter(x=>x.active).length,td=p.todos.filter(x=>!x.done),lt=td.filter(late).length,pod=daysFrom(p.surg);
+    return `<button class="pt" data-id="${p.id}" aria-current="${p.id===S.sel&&tab==='pt'}"><div class="bed">${esc(p.bed)}<span>letto</span></div><div><b>${esc(p.code)}${p.age?` · ${esc(p.age)} a`:''}</b><div class="dx">${esc(p.dx)}</div><div class="badges">${pod!=null&&pod>=0?`<span class="bdg g">${pod===0?'giorno 0':'POD '+pod}</span>`:''}${ap?`<span class="bdg r">${ap} problemi</span>`:''}${td.length?`<span class="bdg ${lt?'r':'a'}">${td.length} da fare${lt?` · ${lt} in ritardo`:''}</span>`:''}</div></div></button>`}).join('')
+  +`<div class="tools"><button id="newPt" class="pri" style="width:100%">+ Nuovo paziente</button></div>`
+  +(S.demo?`<p class="note">Pazienti di esempio inventati. <button class="mini ghost" id="clearDemo">Svuota e inizia</button></p>`:'');
+}
+
+function timeline(p){
+  const n=now();
+  const fut=p.todos.filter(t=>!t.done&&t.due&&t.due>=n).sort((a,b)=>b.due.localeCompare(a.due));
+  const past=[...p.events].sort((a,b)=>b.at.localeCompare(a.at));
+  const li=(cls,at,type,txt,id,kind)=>{const [nm,c]=TYPES[type]||TYPES.nota;return `<li class="${cls}${id===fresh?' new':''}" style="--c:${c}"><time>${fmt(at)}</time><span class="ty">${nm}</span>${kind==='ev'?`<button class="mini ghost del" data-delev="${id}" aria-label="Elimina">✕</button>`:''}<p>${esc(txt)}</p></li>`};
+  return `<ol class="tl">${fut.map(t=>li('fut',t.due,'nota','Programmato: '+t.t,t.id,'td').replace('>Nota<','>Da fare<')).join('')}<li class="now"><span>Ora · ${fmt(n)}</span></li>${past.map(e=>li('',e.at,e.type,e.t,e.id,'ev')).join('')||'<li class="empty">Nessun evento registrato.</li>'}</ol>`;
+}
+
+function renderPatient(){
+  const p=cur();
+  if(!p){$('#view').innerHTML='<div class="box"><h3>Nessun paziente</h3><p class="empty">Aggiungi il primo paziente con “+ Nuovo paziente”.</p></div>';return}
+  const pod=daysFrom(p.surg),dr=daysFrom(p.adm);
+  const probs=[...p.problems].sort((a,b)=>b.active-a.active);
+  const todos=[...p.todos].sort((a,b)=>a.done-b.done||(a.due||'9').localeCompare(b.due||'9'));
+  const opts=Object.entries(TYPES).filter(([k])=>k!=='done'&&k!=='prob').map(([k,[n]])=>`<option value="${k}">${n}</option>`).join('');
+  $('#view').innerHTML=`
+  <div class="phead"><div><h2>Letto ${esc(p.bed)} · ${esc(p.code)}</h2>
+    <div class="meta"><span><strong>${esc(p.dx)}</strong></span>${p.age?`<span>${esc(p.age)} anni</span>`:''}${dr!=null?`<span>Ricovero: <strong>giorno ${dr}</strong></span>`:''}${p.surg?`<span>${esc(p.op||'Intervento')}: <strong>${pod>=0?'POD '+pod:fmt(p.surg)}</strong></span>`:''}${p.notes?`<span style="color:var(--red)">⚠ ${esc(p.notes)}</span>`:''}</div></div>
+    <button id="editPt">Modifica dati</button></div>
+  <div class="cols">
+   <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="box"><h3>Problemi attivi <em>${p.problems.filter(x=>x.active).length} attivi</em></h3>
+      <ul class="items">${probs.map(x=>`<li class="${x.active?'':'res'}"><span class="dot"></span><span class="txt">${esc(x.t)}<span class="sub">dal ${fmt(x.since)}</span></span><button class="mini" data-prob="${x.id}">${x.active?'Risolto':'Riattiva'}</button><button class="mini ghost" data-delprob="${x.id}" aria-label="Elimina">✕</button></li>`).join('')||'<li class="empty">Nessun problema.</li>'}</ul>
+      <form class="add" id="fProb"><input name="t" placeholder="Nuovo problema…" required><button class="pri">Aggiungi</button></form></div>
+    <div class="box"><h3>Da fare <em>${p.todos.filter(x=>!x.done).length} aperti</em></h3>
+      <ul class="items">${todos.map(x=>`<li class="${x.done?'res':''}"><input type="checkbox" class="chk" data-todo="${x.id}" ${x.done?'checked':''} aria-label="Fatto"><span class="txt">${esc(x.t)}${x.due?`<span class="sub ${late(x)?'late':''}">${late(x)?'In ritardo · ':''}${fmt(x.due)}</span>`:''}</span><button class="mini ghost" data-deltodo="${x.id}" aria-label="Elimina">✕</button></li>`).join('')||'<li class="empty">Niente da fare.</li>'}</ul>
+      <form class="add three" id="fTodo"><input name="t" placeholder="Cosa fare…" required><input name="due" type="datetime-local" aria-label="Entro"><button class="pri">Aggiungi</button></form></div>
+   </div>
+   <div class="box"><h3>Linea temporale <em>programmato in alto · fatto in basso</em></h3>
+     <form class="add ev" id="fEv"><select name="type" aria-label="Tipo">${opts}</select><input name="at" type="datetime-local" value="${now()}" aria-label="Quando"><input name="t" placeholder="Cosa è successo…" required><button class="pri">Registra</button></form>
+     ${timeline(p)}</div>
+  </div>`;
+}
+
+function renderWard(){
+  const rows=[];S.patients.forEach(p=>p.todos.filter(t=>!t.done).forEach(t=>rows.push({p,t})));
+  rows.sort((a,b)=>(a.t.due||'9').localeCompare(b.t.due||'9'));
+  const ap=[];S.patients.forEach(p=>p.problems.filter(x=>x.active).forEach(x=>ap.push({p,x})));
+  $('#view').innerHTML=`<div class="phead"><div><h2>Da fare in reparto</h2><div class="meta"><span><strong>${rows.length}</strong> attività aperte</span><span><strong style="color:var(--red)">${rows.filter(r=>late(r.t)).length}</strong> in ritardo</span><span><strong>${ap.length}</strong> problemi attivi</span></div></div></div>
+  <div class="box"><table class="stack"><thead><tr><th></th><th>Quando</th><th>Letto</th><th>Attività</th></tr></thead><tbody>
+  ${rows.map(({p,t})=>`<tr><td><input type="checkbox" class="chk" data-wtodo="${p.id}|${t.id}" aria-label="Fatto"></td><td class="nw" style="${late(t)?'color:var(--red);font-weight:600':''}">${t.due?fmt(t.due):'—'}</td><td class="nw">${esc(p.bed)} · ${esc(p.code)}</td><td>${esc(t.t)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Tutto fatto.</td></tr>'}
+  </tbody></table></div>
+  <div class="box"><h3>Problemi attivi per letto</h3><ul class="items">${ap.map(({p,x})=>`<li><span class="dot"></span><span class="txt"><b>${esc(p.bed)} · ${esc(p.code)}</b> — ${esc(x.t)}<span class="sub">dal ${fmt(x.since)}</span></span></li>`).join('')||'<li class="empty">Nessuno.</li>'}</ul></div>`;
+}
+
+function render(){$('#tabPt').setAttribute('aria-pressed',tab==='pt');$('#tabWard').setAttribute('aria-pressed',tab==='ward');renderList();tab==='pt'?renderPatient():renderWard();fresh=null}
+
+function addEv(p,type,t,at){const e={id:uid(),at:at||now(),type,t};p.events.push(e);fresh=e.id}
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button,input[type=checkbox]');if(!b)return;const p=cur();
+  if(b.classList.contains('pt')){S.sel=b.dataset.id;tab='pt';save();render();return}
+  if(b.id==='tabPt'){tab='pt';render()} else if(b.id==='tabWard'){tab='ward';render()}
+  else if(b.id==='newPt')openPt(null); else if(b.id==='editPt')openPt(p);
+  else if(b.id==='clearDemo'){snap('Esempi rimossi');S={patients:[],sel:null};save();render()}
+  else if(b.id==='btnData'){$('#dataTxt').value=JSON.stringify(S,null,1);$('#dlgData').showModal()}
+  else if(b.id==='dataDl'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([$('#dataTxt').value],{type:'application/json'}));a.download=`diario-reparto-${now().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+  else if(b.id==='dataClose')$('#dlgData').close();
+  else if(b.id==='dataCopy'){navigator.clipboard.writeText($('#dataTxt').value).then(()=>b.textContent='Copiato',()=>{$('#dataTxt').select();b.textContent='Selezionato: premi Ctrl+C'})}
+  else if(b.id==='dataImp'){try{const n=JSON.parse($('#dataTxt').value);if(!Array.isArray(n.patients))throw 0;snap('Dati importati');S=n;S.sel=S.sel||S.patients[0]?.id;save();$('#dlgData').close();render()}catch(_){b.textContent='Testo non valido'}}
+  else if(b.id==='undo'&&lastSnap){S=JSON.parse(lastSnap);lastSnap=null;$('#toast').style.display='none';save();render()}
+  else if(b.id==='ptDel'){const q=S.patients.find(x=>x.id===$('#fPt').dataset.id);if(q){snap(`Letto ${q.bed} rimosso`);S.patients=S.patients.filter(x=>x!==q);S.sel=S.patients[0]?.id||null;save();$('#dlgPt').close();render()}}
+  else if(b.dataset.prob){const x=p.problems.find(y=>y.id===b.dataset.prob);x.active=!x.active;addEv(p,x.active?'prob':'done',(x.active?'Problema riattivato: ':'Problema risolto: ')+x.t);save();render()}
+  else if(b.dataset.delprob){snap('Problema eliminato');p.problems=p.problems.filter(y=>y.id!==b.dataset.delprob);save();render()}
+  else if(b.dataset.deltodo){snap('Attività eliminata');p.todos=p.todos.filter(y=>y.id!==b.dataset.deltodo);save();render()}
+  else if(b.dataset.delev){snap('Evento eliminato');p.events=p.events.filter(y=>y.id!==b.dataset.delev);save();render()}
+  else if(b.dataset.todo||b.dataset.wtodo){
+    let q=p,id=b.dataset.todo;if(b.dataset.wtodo){const[a,c]=b.dataset.wtodo.split('|');q=S.patients.find(x=>x.id===a);id=c}
+    const t=q.todos.find(y=>y.id===id);t.done=!t.done;
+    if(t.done){t.doneAt=now();addEv(q,'done',t.t)}else{q.events=q.events.filter(ev=>!(ev.type==='done'&&ev.t===t.t&&ev.at===t.doneAt))}
+    save();render()}
+});
+
+document.addEventListener('submit',e=>{
+  const f=e.target,p=cur(),d=Object.fromEntries(new FormData(f));
+  if(f.id==='fPt')return;
+  e.preventDefault();
+  if(f.id==='fProb'){p.problems.push({id:uid(),t:d.t.trim(),since:now().slice(0,10),active:true});addEv(p,'prob','Nuovo problema: '+d.t.trim())}
+  if(f.id==='fTodo')p.todos.push({id:uid(),t:d.t.trim(),due:d.due||'',done:false});
+  if(f.id==='fEv')addEv(p,d.type,d.t.trim(),d.at||now());
+  save();render();
+  const again=document.querySelector('#'+f.id+' input[name=t]');again&&again.focus();
+});
+
+function openPt(p){
+  const f=$('#fPt');f.reset();f.dataset.id=p?p.id:'';$('#dlgPtTitle').textContent=p?'Modifica paziente':'Nuovo paziente';
+  $('#ptDel').style.display=p?'':'none';
+  if(p)['bed','code','age','adm','dx','surg','op','notes'].forEach(k=>f.elements[k].value=p[k]||'');
+  else f.elements.adm.value=now().slice(0,10);
+  $('#dlgPt').showModal();
+}
+$('#dlgPt').addEventListener('close',()=>{
+  if($('#dlgPt').returnValue!=='ok')return;const f=$('#fPt'),d=Object.fromEntries(new FormData(f));
+  let p=S.patients.find(x=>x.id===f.dataset.id);
+  if(!p){p={id:uid(),problems:[],todos:[],events:[]};S.patients.push(p);if(d.adm)p.events.push({id:uid(),at:d.adm+'T08:00',type:'nota',t:'Ricovero'})}
+  Object.assign(p,d);S.sel=p.id;tab='pt';save();render();
+});
+$('#dataFile').addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;file.text().then(t=>$('#dataTxt').value=t)});
+
+render();
+if('serviceWorker' in navigator&&location.protocol.startsWith('http')){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+}
+</script>
+</body>
+</html>
